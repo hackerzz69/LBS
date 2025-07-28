@@ -45,6 +45,86 @@
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script>
+    const fetchBtn = document.getElementById("fetchBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const loading = document.querySelector(".spinner-border");
+    const tableBody = document.querySelector("#leaderboardTable tbody");
+    const searchInput = document.getElementById("searchInput");
+
+    let allData = [];
+
+    async function fetchLeaderboard(offset = 0) {
+      const url = `https://littlebigsnake.com/leaderboard?offset=${offset}`;
+      const res = await fetch(url);
+      const text = await res.text();
+      if (text.trim().startsWith("<")) return [];
+
+      return text.trim().split("\n").map(line => {
+        const match = line.match(/(\d+)\s+\"(.+?)\"\s+(\d+)\s+(\d+)\s+(\d+)/);
+        if (match) {
+          return {
+            rank: match[1],
+            name: match[2],
+            userId: match[3],
+            timestamp: match[4],
+            score: match[5],
+          };
+        }
+        return null;
+      }).filter(Boolean);
+    }
+
+    async function loadAllData() {
+      loading.style.display = "inline-block";
+      allData = [];
+      tableBody.innerHTML = "";
+      exportBtn.disabled = true;
+      let offset = 0;
+
+      while (true) {
+        const data = await fetchLeaderboard(offset);
+        if (data.length === 0) break;
+        allData = allData.concat(data);
+        offset += 1000;
+      }
+
+      populateTable(allData);
+      loading.style.display = "none";
+      exportBtn.disabled = false;
+    }
+
+    function populateTable(data) {
+      tableBody.innerHTML = "";
+      data.forEach(entry => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${entry.rank}</td>
+          <td>${entry.name}</td>
+          <td>${entry.userId}</td>
+          <td>${entry.timestamp}</td>
+          <td>${entry.score}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function exportToCSV() {
+      const headers = "Rank,Name,User ID,Timestamp,Score\n";
+      const rows = allData.map(d => `${d.rank},"${d.name}",${d.userId},${d.timestamp},${d.score}`).join("\n");
+      const blob = new Blob([headers + rows], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "lbs_leaderboard.csv";
+      link.click();
+    }
+
+    fetchBtn.addEventListener("click", loadAllData);
+    exportBtn.addEventListener("click", exportToCSV);
+    searchInput.addEventListener("input", () => {
+      const filtered = allData.filter(d => d.name.toLowerCase().includes(searchInput.value.toLowerCase()));
+      populateTable(filtered);
+    });
+  </script>
 </body>
 </html>
