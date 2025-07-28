@@ -23,7 +23,10 @@
     <h1 class="mb-4 text-center">Little Big Snake Leaderboard Tracker</h1>
     <div class="d-flex justify-content-between mb-3">
       <button id="fetchBtn" class="btn btn-primary">Fetch Leaderboard</button>
-      <button id="exportBtn" class="btn btn-success" disabled>Export to CSV</button>
+      <div>
+        <button id="exportBtn" class="btn btn-success me-2" disabled>Export to CSV</button>
+        <button id="exportJsonBtn" class="btn btn-warning" disabled>Export to JSON</button>
+      </div>
     </div>
     <div id="loading" class="text-center mb-3">
       <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
@@ -36,8 +39,8 @@
             <th>Rank</th>
             <th>Name</th>
             <th>User ID</th>
-            <th>Timestamp</th>
             <th>Score</th>
+            <th>Level</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -48,11 +51,16 @@
   <script>
     const fetchBtn = document.getElementById("fetchBtn");
     const exportBtn = document.getElementById("exportBtn");
+    const exportJsonBtn = document.getElementById("exportJsonBtn");
     const loading = document.querySelector(".spinner-border");
     const tableBody = document.querySelector("#leaderboardTable tbody");
     const searchInput = document.getElementById("searchInput");
 
     let allData = [];
+
+    function formatNumber(num) {
+      return Number(num).toLocaleString();
+    }
 
     async function fetchLeaderboard(offset = 0) {
       const url = `https://littlebigsnake.com/leaderboard?offset=${offset}`;
@@ -67,8 +75,8 @@
             rank: match[1],
             name: match[2],
             userId: match[3],
-            timestamp: match[4],
-            score: match[5],
+            score: match[4],
+            level: match[5],
           };
         }
         return null;
@@ -80,6 +88,7 @@
       allData = [];
       tableBody.innerHTML = "";
       exportBtn.disabled = true;
+      exportJsonBtn.disabled = true;
       let offset = 0;
 
       while (true) {
@@ -92,6 +101,7 @@
       populateTable(allData);
       loading.style.display = "none";
       exportBtn.disabled = false;
+      exportJsonBtn.disabled = false;
     }
 
     function populateTable(data) {
@@ -99,19 +109,19 @@
       data.forEach(entry => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${entry.rank}</td>
+          <td>${formatNumber(entry.rank)}</td>
           <td>${entry.name}</td>
           <td>${entry.userId}</td>
-          <td>${entry.timestamp}</td>
-          <td>${entry.score}</td>
+          <td>${formatNumber(entry.score)}</td>
+          <td>${formatNumber(entry.level)}</td>
         `;
         tableBody.appendChild(tr);
       });
     }
 
     function exportToCSV() {
-      const headers = "Rank,Name,User ID,Timestamp,Score\n";
-      const rows = allData.map(d => `${d.rank},"${d.name}",${d.userId},${d.timestamp},${d.score}`).join("\n");
+      const headers = "Rank,Name,User ID,Score,Level\n";
+      const rows = allData.map(d => `${d.rank},"${d.name}",${d.userId},${d.score},${d.level}`).join("\n");
       const blob = new Blob([headers + rows], { type: "text/csv" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
@@ -119,12 +129,25 @@
       link.click();
     }
 
+    function exportToJSON() {
+      const blob = new Blob([JSON.stringify(allData, null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "lbs_leaderboard.json";
+      link.click();
+    }
+
     fetchBtn.addEventListener("click", loadAllData);
     exportBtn.addEventListener("click", exportToCSV);
+    exportJsonBtn.addEventListener("click", exportToJSON);
+
     searchInput.addEventListener("input", () => {
       const filtered = allData.filter(d => d.name.toLowerCase().includes(searchInput.value.toLowerCase()));
       populateTable(filtered);
     });
+
+    // Auto-fetch leaderboard on page load
+    window.addEventListener("load", loadAllData);
   </script>
 </body>
 </html>
